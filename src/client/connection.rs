@@ -1,26 +1,53 @@
-use std::net::TcpStream;
 use std::io::{ BufReader, BufRead, Write};
-use std::time;
 use std::io::{ Error, ErrorKind };
-use crate::config::{IP_SERVERS, CONNECTION_RETRIES};
+use std::net::TcpStream;
+use std::time;
+use crate::config::CONNECTION_RETRIES;
+use crate::config::IP_SERVERS;
 
-fn try_connection() -> Result<TcpStream, std::io::Error> {
+fn connect_to_server(retries: u16) -> Result<TcpStream, std::io::Error> {
 
-    let mut current_tries = 1;
-    while current_tries <= CONNECTION_RETRIES {
+    for _retrie in 0..retries {
 
-        //Falta agregar que se conecte a los distintos servidores SI LOS HAY
-        if let Ok(stream) = TcpStream::connect(IP_SERVERS[0]) {
+        if let Ok(stream_server) = TcpStream::connect(IP_SERVERS) {
 
-            return Ok(stream);
+            return Ok(stream_server);
         } else {
-            let dur = time::Duration::from_millis(2000);
-            std::thread::sleep(dur);
-            current_tries += 1;
+
+            let sleep_time = time::Duration::from_millis(2000);
+            std::thread::sleep(sleep_time);
         }
     }
 
-    Err(Error::new(ErrorKind::Other, "ERROR"))
+    Err(Error::new(ErrorKind::Other, "Failed to establish connection with web server"))
 }
 
-// TO DO
+pub fn connect(req: String) -> Result<(), std::io::Error> {
+    match connect_to_server(CONNECTION_RETRIES) {
+        Ok(mut server) => {
+            server.write_all(req.as_bytes())?;
+            let mut buf_reader = BufReader::new(&mut server);
+            let mut response = String::new();
+            let mut status = String::new();
+
+            buf_reader.read_line(&mut status)?;
+            loop {
+                buf_reader.read_line(&mut response)?;
+                if response.ends_with("\r\n\r\n") {
+                    break;
+                }
+            }
+
+            println!("REQUEST STATUS: {}", status);
+
+            if !response.eq("\r\n\r\n"){
+                println!("ID\tESTADO\t\tUSUARIO");
+                println!("-------------------------------");
+                println!("{}", response);
+            }
+        },
+        Err(_) => { return Err(Error::new(ErrorKind::NotConnected, "Could not connect to server.")); },
+    }
+
+    Ok(())
+}

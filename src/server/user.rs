@@ -2,13 +2,13 @@ pub struct User {
 
     username: String,
     mail: Option<String>,
-    phone: Option<i32>,
+    phone: Option<i64>,
     reserved_seats: Vec<i32>,
 }
 
 impl User {
 
-    pub fn default(username: String, mail: Option<String>, phone: Option<i32>) -> Self {
+    pub fn default(username: String, mail: Option<String>, phone: Option<i64>) -> Self {
 
         let reserved_seats = vec![];
 
@@ -29,7 +29,7 @@ impl User {
 
         println!("------------ BEGIN INFO ------------");
         println!("Currently, you have {} seats reserved", self.reserved_seats.len());
-        if self.reserved_seats.len() > 0 {
+        if !self.reserved_seats.is_empty() {
 
             println!("Those are: ");
             for seat in self.reserved_seats.iter() {

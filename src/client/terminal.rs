@@ -2,18 +2,9 @@ use std::io;
 use std::io::Write;
 use std::process;
 use crate::server::user::User;
+use crate::utils::MenuSelection;
 
-pub enum MenuSelection {
-
-    DisplayAllSeats,
-    DisplayAvailableSeats,
-    DisplayReservedSeats,
-    ReserveSeat(i32),
-    Checkout,
-    CancelReservation(i32),
-}
-
-pub fn get_user_info() -> (String, String, i32) {
+pub fn get_user_info() -> (String, String, i64) {
 
     print!("Insert Username: ");
     io::stdout().flush().unwrap();
@@ -41,6 +32,7 @@ pub fn get_menu_selection(user: &User) -> MenuSelection {
         print_menu();
 
         let selection = get_integer_input();
+        let username = user.get_username();
 
         if let Some(selection) = {
 
@@ -48,56 +40,59 @@ pub fn get_menu_selection(user: &User) -> MenuSelection {
 
                 1 => { Some(MenuSelection::DisplayAllSeats) },
                 2 => { Some(MenuSelection::DisplayAvailableSeats) },
-                3 => { Some(MenuSelection::DisplayReservedSeats) },
+                3 => { Some(MenuSelection::DisplayReservedSeats(username.clone())) },
                 4 => {
 
                     println!("Insert num of the seat you'd like to reserve: ");
-                    Some(MenuSelection::ReserveSeat(get_integer_input()))
+                    Some(MenuSelection::ReserveSeat(username.clone(), get_integer_input()))
                 },
                 5 => {
 
                     //Se debe realizar petición para consultar las sillas reservadas por el usuario
                     println!("Insert num of the seat you'd like to cancel: ");
-                    Some(MenuSelection::CancelReservation(get_integer_input()))
+                    Some(MenuSelection::CancelReservation(username.clone(), get_integer_input()))
                 },
-                6 => { Some(MenuSelection::Checkout) },
+                6 => {
+
+                    println!("Insert num of the seat you'd like to pay: ");
+                    Some(MenuSelection::Checkout(username.clone(), get_integer_input())) },
                 7 => { process::exit(0) },
                 _ => { println!("Non-Valid Input"); None },
             }
         } {
 
-            execute(selection, user);
+            return selection;
         }
     }
 }
 
-fn execute(selection: MenuSelection, user: &User) {
+pub fn build_request(selection: MenuSelection) -> String {
 
     match selection {
 
         MenuSelection::DisplayAllSeats => {
 
-            //Aquí se enviará la petición al servidor para recibir la lista de todas las sillas (y su estado)
+            "DisplayAllSeats\r\n\r\n".to_string()
         },
         MenuSelection::DisplayAvailableSeats => {
 
-            //Aquí se enviará la petición al servidor para recibir la lista de sillas disponibles
+            "DisplayAvailableSeats\r\n\r\n".to_string()
         },
-        MenuSelection::DisplayReservedSeats => {
+        MenuSelection::DisplayReservedSeats(username) => {
 
-            //Aquí se consultará con el servidor las sillas reservadas por el usuario
+            format!("DisplayReservedSeats {username}\r\n\r\n")
         },
-        MenuSelection::ReserveSeat(num) => {
+        MenuSelection::ReserveSeat(username, seat_id) => {
 
-            //Aquí se enviará la petición al servidor para reservar la silla
+            format!("ReserveSeat {username} {seat_id}\r\n\r\n")
         },
-        MenuSelection::CancelReservation(num) => {
+        MenuSelection::CancelReservation(username, seat_id) => {
 
-            //Aquí se enviará la petición al servidor para cancelar la reserva
+            format!("CancelReservation {username} {seat_id}\r\n\r\n")
         },
-        MenuSelection::Checkout => {
+        MenuSelection::Checkout(username, seat_id) => {
 
-            //Aquí se enviará la información al servidor de que se ha realizado el pago
+            format!("Checkout {username} {seat_id}\r\n\r\n")
         },
     }
 }
@@ -114,11 +109,6 @@ fn print_menu() {
     println!("7: Exit");
 }
 
-fn print_user_reserved_seats(user: &User) {
-
-    user.display_seats_info();
-}
-
 pub fn get_input() -> String {
     let mut input = String::new();
     io::stdin().read_line(&mut input).expect("ERROR");
@@ -126,13 +116,13 @@ pub fn get_input() -> String {
     input
 }
 
-fn get_integer_input() -> i32 {
+fn get_integer_input() -> i64 {
 
     let mut input = String::new();
     io::stdin().read_line(&mut input).expect("ERROR");
     input.pop();
 
-    if let Ok(result) = input.trim().parse::<i32>() {
+    if let Ok(result) = input.trim().parse::<i64>() {
 
         return result;
     }
